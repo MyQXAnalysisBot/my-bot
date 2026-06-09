@@ -1,3 +1,7 @@
+import os
+oTOKEN = os.environ.get("TELEGRAM_TOKEN")
+import os
+TOKEN = os.environ.get("TELEGRAM_TOKEN")
 import random
 from telegram import InlineKeyboardButton, InlineKeyboardMarkup, Update
 from telegram.ext import Application, CommandHandler, CallbackQueryHandler, ContextTypes
