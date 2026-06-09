@@ -1,28 +1,46 @@
 import os
-oTOKEN = os.environ.get("TELEGRAM_TOKEN")
-import os
-TOKEN = os.environ.get("TELEGRAM_TOKEN")
-import random
-from telegram import InlineKeyboardButton, InlineKeyboardMarkup, Update
-from telegram.ext import Application, CommandHandler, CallbackQueryHandler, ContextTypes
+import yfinance as yf
+import pandas as pd
+from telegram import InlineKeyboardButton, InlineKeyboardMarkup
+from telegram.ext import Application, CommandHandler, CallbackQueryHandler
 
-TOKEN = "8969604366:AAHe0gtCtdCmyKsID5tDwJe-YLVY1K_aEJE"
+TOKEN = os.environ.get("TELEGRAM_TOKEN")
 
 def generate_signal():
-    rsi_value = random.randint(25, 85) 
-    if rsi_value < 40:
-        return "🟢 UP (CALL) - RSI is Low"
-    elif rsi_value > 65:
-        return "🔴 DOWN (PUT) - RSI is High"
-    else:
-        return random.choice(["🟢 UP (CALL) - Trend Follow", "🔴 DOWN (PUT) - Trend Follow"])
+    try:
+        ticker = yf.Ticker("EURUSD=X")
+        df = ticker.history(period="1d", interval="5m")
+        if df.empty:
+            return "⚠️ Market Data Unavailable"
+        
+        close_prices = df['Close']
+        delta = close_prices.diff()
+        gain = (delta.where(delta > 0, 0)).rolling(window=14).mean()
+        loss = (-delta.where(delta < 0, 0)).rolling(window=14).mean()
+        rs = gain / loss
+        rsi = 100 - (100 / (1 + rs))
+        current_rsi = rsi.iloc[-1]
+        
+        if current_rsi < 35:
+            return f"🟢 UP (CALL) - RSI is Low ({current_rsi:.2f})"
+        elif current_rsi > 65:
+            return f"🔴 DOWN (PUT) - RSI is High ({current_rsi:.2f})"
+        else:
+            ma = close_prices.rolling(window=10).mean().iloc[-1]
+            current_price = close_prices.iloc[-1]
+            if current_price > ma:
+                return f"🟢 UP (CALL) - Bullish Trend"
+            else:
+                return f"🔴 DOWN (PUT) - Bearish Trend"
+    except Exception as e:
+        return "⚠️ Analysis Error"
 
-async def start(update: Update, context: ContextTypes.DEFAULT_TYPE):
-    keyboard = [[InlineKeyboardButton("🔍 Analyze Now", callback_data='analyze')]]
+async def start(update, context):
+    keyboard = [[InlineKeyboardButton("🔍 Analyze EUR/USD", callback_data='analyze')]]
     reply_markup = InlineKeyboardMarkup(keyboard)
-    await update.message.reply_text('🤖 QX Bot: CONNECTED\nClick below to analyze:', reply_markup=reply_markup)
+    await update.message.reply_text('🤖 QX Live Signal Bot Ready!', reply_markup=reply_markup)
 
-async def button_click(update: Update, context: ContextTypes.DEFAULT_TYPE):
+async def button_click(update, context):
     query = update.callback_query
     await query.answer()
     if query.data == 'analyze':
@@ -40,3 +58,5 @@ def main():
 
 if __name__ == '__main__':
     main()
+
+
