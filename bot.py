@@ -1,10 +1,19 @@
 import os
+import threading
+from http.server import SimpleHTTPRequestHandler, HTTPServer
 import yfinance as yf
 import pandas as pd
 from telegram import InlineKeyboardButton, InlineKeyboardMarkup
 from telegram.ext import Application, CommandHandler, CallbackQueryHandler
 
 TOKEN = os.environ.get("TELEGRAM_TOKEN")
+
+# রেন্ডারের Failed এরর বন্ধ করার জন্য ওয়েব সার্ভার
+def run_web_server():
+    port = int(os.environ.get("PORT", 10000))
+    server = HTTPServer(('0.0.0.0', port), SimpleHTTPRequestHandler)
+    print(f"🌍 Web server running on port {port}")
+    server.serve_forever()
 
 def generate_signal():
     try:
@@ -50,6 +59,9 @@ async def button_click(update, context):
         await query.edit_message_text(text=f"📊 **Market Analysis Result**\n✨ Recommendation: **{decision}**", reply_markup=reply_markup, parse_mode="Markdown")
 
 def main():
+    # ব্যাকগ্রাউন্ডে ওয়েব সার্ভার চালু করা
+    threading.Thread(target=run_web_server, daemon=True).start()
+    
     app = Application.builder().token(TOKEN).build()
     app.add_handler(CommandHandler("start", start))
     app.add_handler(CallbackQueryHandler(button_click))
@@ -58,5 +70,3 @@ def main():
 
 if __name__ == '__main__':
     main()
-
-
